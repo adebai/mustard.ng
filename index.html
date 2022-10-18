@@ -1,0 +1,241 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charts.js</title>
+</head>
+
+<body>
+    <style>
+        * {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .chart {
+            border: 3px solid royalblue;
+        }
+        .loading {
+            width:100vw;
+            height:100vh;
+            margin:0;
+            padding:0;
+            position:fixed;
+            top:0;
+            left: 0;
+            background-color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: calc(49vh - 60px);
+            opacity: 1;
+            transition: opacity 1s;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            /* Light grey */
+            border-top: 5px solid #3498db;
+            /* Blue */
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            animation: spin 2s linear infinite;
+            margin-left: -60px;
+        }
+        .loaderText {
+            display: inline-block;
+            text-align: center;
+            margin: auto;
+            margin-top:50px;
+            margin-left:29.1px;
+            animation: unspin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes unspin {
+            0% {
+                transform: rotate(360deg);
+            }
+
+            100% {
+                transform: rotate(0deg);
+            }
+        }
+
+        .hide-loader {
+            display: none;
+        }
+    </style>
+    <div class="price">
+        <h4>Select date:
+            <select name="date" id="dateSelect" class="date"></select>
+        </h4>
+        <h2>Price of $1 in <span class="month"></span>: <span class="naira"></span></h2>
+    </div>
+    <div class="chart">
+        <canvas id="myChart" width="500" height="200"></canvas>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.js"></script>
+    <script>
+        data = fetch("challenge.php");
+        csv = "";
+        data.then(async (res) => {
+            csv = await res.text();
+            var arr = csv.split(`
+`);
+            arr.shift();
+            var dateData = [];
+            var priceData = [];
+            var arr3 = [];
+            var arr4 = [];
+            let months = [];
+            months[6] = "June";
+            months[7] = "July";
+            months[8] = "August";
+            months[9] = "September";
+            months[10] = "October";
+            arr.forEach((e, i) => {
+                let date = e.split(',')[1].split(' ')[0];
+                if (!arr4.includes(date)) {
+                    let month = parseInt(date.split('-')[1]);
+                    if (undefined == dateData[months[month]]) dateData[months[month]] = [];
+                    if (undefined == priceData[months[month]]) priceData[months[month]] = [];
+                    dateData[months[month]].push(parseInt(date.split('-')[2]) + 'th of ' + months[month]);
+                    priceData[months[month]].push(e.split(',')[0]);
+                    arr4.push(date);
+                }
+            });
+            html = "";
+            arr4.forEach((e, i) => {
+                html += `<option value="${e}">${e}</option>`;
+            })
+            let select = document.getElementById('dateSelect');
+            let monthSpan = document.getElementsByClassName('month')[0];
+            let nairaSpan = document.getElementsByClassName('naira')[0];
+            select.innerHTML = html;
+            var selected = months[parseInt(select.value.split('-')[1])];
+            var previous = months[parseInt(select.value.split('-')[1]) - 1];
+            var xValues = dateData[selected];
+            var yValues = priceData[selected];
+            latestPrice = yValues[Object.keys(yValues)[Object.keys(yValues).length - 1]];
+            setTimeout(e => {
+                monthSpan.innerText = dateData[selected][dateData[selected].length - 1];
+                nairaSpan.innerText = '₦' + latestPrice;
+            }, 1);
+            if (previous != undefined) {
+                previous.forEach((e) => {
+                    yValues.push(e);
+                })
+            }
+            select.onchange = function (event) {
+                xValues = [];
+                yValues = [];
+                var selected = months[parseInt(select.value.split('-')[1])];
+                var previous = months[parseInt(select.value.split('-')[1]) - 1];
+                if (previous != undefined) {
+                    priceData[previous].forEach((e) => {
+                        yValues.push(e);
+                    })
+                    dateData[previous].forEach((e) => {
+                        xValues.push(e);
+                    })
+                }
+                priceData[selected].forEach(e => {
+                    yValues.push(e);
+                });
+                dateData[selected].forEach(e => {
+                    xValues.push(e);
+                });
+                let monthSpan = document.getElementsByClassName('month')[0];
+                let nairaSpan = document.getElementsByClassName('naira')[0];
+                let dates = dateData[selected];
+                monthSpan.innerText = dates[dates.length - 1];
+                chart.data.datasets[0].data = yValues;
+                chart.data.labels = xValues;
+                data = chart.data;
+                chart.config.data = data;
+                chart.update();
+                latestPrice = yValues[Object.keys(yValues)[Object.keys(yValues).length - 1]];
+                nairaSpan.innerText = '₦' + latestPrice;
+            };
+            var ctx = document.getElementById('myChart').getContext('2d');
+            var chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: xValues,
+                    datasets: [{
+                        label: "Price of $1",
+                        backgroundColor: 'lightblue',
+                        borderColor: 'royalblue',
+                        data: yValues,
+                    }]
+                },
+                options: {
+                    layout: {
+                        padding: 10,
+                    },
+                    legend: {
+                        position: 'bottom',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Naira (₦) / Dollar ($) price chart'
+                    },
+                    scales: {
+                        yAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Price of ₦ (Naira) per $ (USD)'
+                            },
+                            ticks: {
+                                min: 600, max: 730, stepSize: 5,
+                                userCallback: function (value, index, values) {
+                                    value = value.toString();
+                                    value = value.split(/(?=(?:...)*$)/);
+                                    value = value.join('.');
+                                    return '₦' + value;
+                                }
+                            }
+                        }],
+                        xAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Date'
+                            },
+                            ticks: {
+                                userCallback: function (value, index, values) {
+                                    return '' + value;
+                                }
+                            }
+                        }]
+                    }
+                }
+            });
+
+        });
+
+    </script>
+    <div class="loading">
+        <div class="loader" id="loader"><span class="loaderText">Loading..</span>
+        </div>
+    </div>
+    <script>
+        setTimeout(e=>{
+            document.getElementsByClassName('loading')[0].style.opacity = 0;// + "vw";
+            setTimeout(e=>{
+                document.getElementsByClassName('loading')[0].remove();
+            }, 1000);
+        }, 1000);
+    </script>
+</body>
+
+</html>
